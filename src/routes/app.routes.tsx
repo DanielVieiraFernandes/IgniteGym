@@ -13,6 +13,8 @@ import { Home } from "@screens/Home";
 import { Profile } from "@screens/Profile";
 import { gluestackUIConfig } from "../../config/gluestack-ui.config";
 import { Platform } from "react-native";
+import { Text } from "@gluestack-ui/themed";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 type AppRoutes = {
   home: undefined;
@@ -24,8 +26,9 @@ type AppRoutes = {
 export type AppNavigatorRoutesProps = BottomTabNavigationProp<AppRoutes>;
 
 const { Navigator, Screen } = createBottomTabNavigator<AppRoutes>();
+const Stack = createNativeStackNavigator();
 
-export function AppRoutes() {
+function AppTabs() {
   const { tokens } = gluestackUIConfig;
   const iconSize = tokens.space["6"];
 
@@ -37,16 +40,15 @@ export function AppRoutes() {
         tabBarActiveTintColor: tokens.colors.green500,
         tabBarInactiveTintColor: tokens.colors.gray200,
         tabBarLabelPosition: "beside-icon",
-        tabBarStyle:
-          route.name === "exercise"
-            ? { display: "none" }
-            : {
-                backgroundColor: tokens.colors.gray600,
-                borderTopWidth: 0,
-                height: Platform.OS === "android" ? "auto" : 96,
-                paddingBottom: tokens.space["10"],
-                paddingTop: tokens.space["6"],
-              },
+        tabBarStyle: {
+          backgroundColor: tokens.colors.gray600,
+          borderTopWidth: 0,
+          height: Platform.OS === "android" ? "auto" : 96,
+          paddingBottom: tokens.space["10"],
+          paddingTop: tokens.space["6"],
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
       })}
     >
       <Screen
@@ -76,16 +78,20 @@ export function AppRoutes() {
           ),
         }}
       />
-      {false && (
-        <Screen
-          name="exercise"
-          component={Exercise}
-          options={{
-            tabBarButton: () => null,
-            tabBarStyle: { display: "none" },
-          }}
-        />
-      )}
     </Navigator>
+  );
+}
+
+export function AppRoutes() {
+  return (
+    <Stack.Navigator
+      initialRouteName="appTabs"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="appTabs" component={AppTabs} />
+      <Stack.Screen name="exercise" component={Exercise} />
+    </Stack.Navigator>
   );
 }
