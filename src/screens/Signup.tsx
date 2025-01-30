@@ -12,12 +12,46 @@ import { Input } from "@components/Input";
 import { Button } from "@components/Button";
 import { AuthNavigatorRoutesProps } from "@routes/auth.routes";
 import { useNavigation } from "@react-navigation/native";
+import { useForm, Controller } from "react-hook-form";
+import * as yup from "yup";
+import {yupResolver} from "@hookform/resolvers/yup"
 
+const signUpSchema = yup.object({
+  name: yup.string().required("Informe o nome."),
+  email: yup.string().required("Informe o e-mail.").email("email inválido."),
+  password: yup.string().required("Informe a senha.").min(6, "A senha deve ter pelo menos 6 dígitos."),
+  password_confirm: yup.string().required("Confirme a senha.").oneOf([yup.ref("password"), ""], "A confirmação da senha não confere")
+});
+
+type FormDataProps = yup.InferType<typeof signUpSchema>;
 export function Signup() {
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+  } = useForm<FormDataProps>({
+    resolver: yupResolver(signUpSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      password_confirm: "",
+    },
+  });
+
   const navigation = useNavigation<AuthNavigatorRoutesProps>();
 
   const handleGoBack = () => {
     navigation.goBack();
+  };
+
+  const handleSignUp = ({
+    email,
+    name,
+    password,
+    password_confirm,
+  }: FormDataProps) => {
+    console.log({ email, name, password, password_confirm });
   };
 
   return (
@@ -43,14 +77,68 @@ export function Signup() {
           </Center>
           <Center gap="$2" flex={1}>
             <Heading color="$gray100">Crie sua conta</Heading>
-            <Input placeholder="Nome" />
-            <Input
-              placeholder="E-mail"
-              keyboardType="email-address"
-              autoCapitalize="none"
+            <Controller
+              name="name"
+              control={control}
+              render={({ field: { onChange, value, onBlur } }) => (
+                <Input
+                  placeholder="Nome"
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
+                  errorMessage={errors.name?.message}
+                />
+              )}
             />
-            <Input placeholder="Senha" secureTextEntry />
-            <Button title="Criar e acessar" />
+            <Controller
+              name="email"
+              control={control}
+              render={({ field: { onChange, value, onBlur } }) => (
+                <Input
+                  placeholder="Email"
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  errorMessage={errors.email?.message}
+                />
+              )}
+            />
+
+            <Controller
+              name="password"
+              control={control}
+              render={({ field: { onChange, value, onBlur } }) => (
+                <Input
+                  placeholder="Senha"
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
+                  secureTextEntry
+                  errorMessage={errors.password?.message}
+                />
+              )}
+            />
+            <Controller
+              name="password_confirm"
+              control={control}
+              render={({ field: { onChange, value, onBlur } }) => (
+                <Input
+                  placeholder="Confirme a Senha"
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
+                  secureTextEntry
+                  errorMessage={errors.password_confirm?.message}
+                  onSubmitEditing={handleSubmit(handleSignUp)}
+                />
+              )}
+            />
+            <Button
+              title="Criar e acessar"
+              onPress={handleSubmit(handleSignUp)}
+            />
           </Center>
           <Button
             title="Voltar para o login"
