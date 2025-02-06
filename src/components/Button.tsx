@@ -17,6 +17,7 @@ export function Button({
   return (
     <GluestackButton
       w="$full"
+
       h="$14"
       bg={variant === "outline" ? "transparent" : "$green700"}
       borderWidth={variant === "outline" ? "$1" : "$0"}

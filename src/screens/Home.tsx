@@ -7,31 +7,92 @@ import {
   Heading,
   HStack,
   Text,
+  useToast,
   VStack,
 } from "@gluestack-ui/themed";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { AppNavigatorRoutesProps } from "@routes/app.routes";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { api } from "@services/api";
+import { AppError } from "@utils/AppError";
+import { ToastMessage } from "@components/ToastMessage";
+import { ExerciseDTO } from "@dtos/ExerciseDTO";
+import { Loading } from "@components/Loading";
 
 export function Home() {
-  const [exercises, setExercises] = useState([
-    "Puxada Frontal",
-    "Remada Curvada",
-    "Remada Unilateral",
-    "Levantamento Terra",
-    "1",
-  ]);
-  const [groups, setGroups] = useState([
-    "Costas",
-    "Bíceps",
-    "Tríceps",
-    "Ombro",
-  ]);
-  const [groupSelected, setGroupSelected] = useState("Costas");
+  const [exercises, setExercises] = useState<ExerciseDTO[]>([]);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [groupSelected, setGroupSelected] = useState("antebraço");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const navigation = useNavigation<AppNavigatorRoutesProps>();
 
-  const handleOpenExerciseDetails = () => navigation.navigate('exercise');
+  const handleOpenExerciseDetails = (exerciseId: string) => navigation.navigate("exercise", {
+    exerciseId,
+  });
+
+  const toast = useToast();
+
+  const fetchGroups = async () => {
+    try {
+      const { data } = await api.get("/groups");
+      console.log(data);
+      setGroups(data);
+    } catch (error) {
+      const isAppError = error instanceof AppError;
+      const title = isAppError
+        ? error.message
+        : "Não foi possível carregar os grupos musculares";
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <ToastMessage
+            id={id}
+            onClose={() => toast.close(id)}
+            title={title}
+            action="error"
+          />
+        ),
+      });
+    } 
+  };
+
+  const fetchExercisesByGroup = async () => {
+    setIsLoading(true);
+
+    try {
+      const {data} = await api.get(`/exercises/bygroup/${groupSelected}`);
+      setExercises(data);
+      console.log(data);
+      
+    } catch (error) {
+      const isAppError = error instanceof AppError;
+      const title = isAppError
+        ? error.message
+        : "Não foi possível carregar os exercícios";
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <ToastMessage
+            id={id}
+            onClose={() => toast.close(id)}
+            title={title}
+            action="error"
+          />
+        ),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchExercisesByGroup();
+  } ,[groupSelected]));
 
   return (
     <VStack flex={1}>
@@ -53,7 +114,7 @@ export function Home() {
         }}
         style={{ marginVertical: 40, maxHeight: 44, minHeight: 44 }}
       />
-      <VStack flex={1} px="$8">
+     {isLoading ? <Loading /> :  <VStack flex={1} px="$8">
         <HStack justifyContent="space-between" mb="$5" alignItems="center">
           <Heading color="$gray200" fontSize="$md" fontFamily="$heading">
             Exercícios
@@ -64,12 +125,14 @@ export function Home() {
         </HStack>
         <FlatList
           data={exercises}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => <ExerciseCard onPress={handleOpenExerciseDetails}/>}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <ExerciseCard onPress={() => handleOpenExerciseDetails(item.id)} data={item}/>
+          )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 30 }}
         />
-      </VStack> 
+      </VStack>}
     </VStack>
   );
 }

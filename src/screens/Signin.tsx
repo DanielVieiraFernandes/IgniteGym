@@ -5,6 +5,7 @@ import {
   Center,
   Heading,
   ScrollView,
+  useToast,
 } from "@gluestack-ui/themed";
 import BackgroundImg from "@assets/background.png";
 import Logo from "@assets/logo.svg";
@@ -15,7 +16,10 @@ import { useNavigation } from "@react-navigation/native";
 import { Controller, useForm } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
-
+import { useAuth } from "@hooks/useAuth";
+import { AppError } from "@utils/AppError";
+import { ToastMessage } from "@components/ToastMessage";
+import { useState } from "react";
 const signInSchema = yup.object({
   email: yup.string().required("Informe o email.").email(),
   password: yup.string().required("Informe a senha"),
@@ -23,9 +27,18 @@ const signInSchema = yup.object({
 
 type SignInDataProps = yup.InferType<typeof signInSchema>;
 
-
 export function Signin() {
-  const { control, formState, handleSubmit } = useForm<SignInDataProps>({
+
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const {signIn,user} = useAuth();
+  const toast = useToast();
+
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+  } = useForm<SignInDataProps>({
     resolver: yupResolver(signInSchema),
     defaultValues: {
       email: "",
@@ -38,6 +51,31 @@ export function Signin() {
   const handleNewAccount = () => {
     navigation.navigate("signUp");
   };
+
+  const handleSignIn = async ({email,password}:SignInDataProps) => {
+    try {
+      setIsLoading(true);
+      await signIn(email, password); 
+
+    } catch (error) {
+      const isAppError = error instanceof AppError;
+
+      const title = isAppError ? error.message : 'Não foi possível entrar. Tente novamente mais tarde';
+      toast.show({
+       placement: 'top',
+       render: ({id}) => (
+        <ToastMessage 
+        title={title}
+        id={id}
+        onClose={() => toast.close(id)}
+        action="error"
+        
+        />
+       )
+      })
+      setIsLoading(false);
+    } 
+  }
 
   return (
     <ScrollView
@@ -65,20 +103,33 @@ export function Signin() {
             <Controller
               control={control}
               name="email"
-              render={() => (
+              render={({field:{onChange,value,onBlur}}) => (
                 <Input
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
                   placeholder="E-mail"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  errorMessage={errors.email?.message}
                 />
               )}
             />
             <Controller
               control={control}
               name="password"
-              render={() => <Input placeholder="Senha" secureTextEntry />}
+              render={({field:{onChange,value,onBlur}}) => (
+                <Input
+                  onChangeText={onChange}
+                  value={value}
+                  onBlur={onBlur}
+                  placeholder="Senha"
+                  secureTextEntry
+                  errorMessage={errors.password?.message}
+                />
+              )}
             />
-            <Button title="Acessar" />
+            <Button title="Acessar" onPress={handleSubmit(handleSignIn)} isLoading={isLoading} />
           </Center>
           <Center flex={1} justifyContent="flex-end" mt="$4">
             <Text color="$gray100" fontSize="$sm" mb="$3" fontFamily="$body">

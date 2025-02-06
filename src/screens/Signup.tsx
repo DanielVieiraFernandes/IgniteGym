@@ -5,6 +5,7 @@ import {
   Center,
   Heading,
   ScrollView,
+  useToast
 } from "@gluestack-ui/themed";
 import BackgroundImg from "@assets/background.png";
 import Logo from "@assets/logo.svg";
@@ -15,7 +16,11 @@ import { useNavigation } from "@react-navigation/native";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import {yupResolver} from "@hookform/resolvers/yup"
-
+import { api } from "@services/api";
+import { AppError } from "@utils/AppError";
+import { ToastMessage } from "@components/ToastMessage";
+import { useState } from "react";
+import { useAuth } from "@hooks/useAuth";
 const signUpSchema = yup.object({
   name: yup.string().required("Informe o nome."),
   email: yup.string().required("Informe o e-mail.").email("email inválido."),
@@ -25,6 +30,12 @@ const signUpSchema = yup.object({
 
 type FormDataProps = yup.InferType<typeof signUpSchema>;
 export function Signup() {
+
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const {signIn} = useAuth();
+
+    const toast = useToast();
+
   const {
     control,
     formState: { errors },
@@ -45,13 +56,40 @@ export function Signup() {
     navigation.goBack();
   };
 
-  const handleSignUp = ({
+  const handleSignUp = async ({
     email,
     name,
     password,
     password_confirm,
   }: FormDataProps) => {
-    console.log({ email, name, password, password_confirm });
+   try {
+    setIsLoading(true);
+     await api.post('/users', {
+      email,
+      name,
+      password
+   });
+   await signIn(email, password);
+
+   } catch (error) {
+    setIsLoading(false);
+    const isAppError = error instanceof AppError;
+
+    const title = isAppError ? error.message : 'Não foi possível criar a conta. Tente novamente mais tarde.';
+
+    toast.show({
+      placement: "top",
+      render: ({id}) => (
+        <ToastMessage 
+          id={id}
+          title={title}
+          action="error"
+          onClose={() => toast.close(id)}
+        />
+      )
+    })
+
+   }
   };
 
   return (
