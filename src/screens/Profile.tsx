@@ -12,32 +12,31 @@ import { Controller, useForm } from "react-hook-form";
 import { useAuth } from "@hooks/useAuth";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { api } from "@services/api";
+import { AppError } from "@utils/AppError";
+import DefaultImg from "@assets/userPhotoDefault.png";
 
 const profileSchema = yup.object({
   name: yup.string().required("Informe o nome."),
   email: yup.string(),
+  old_password: yup.string(),
   password: yup
     .string()
     .min(6, "A senha deve ter pelo menos 6 dígitos")
     .nullable()
     .transform((value) => (!!value ? value : null)),
-  old_password: yup.string(),
   confirm_password: yup
     .string()
     .nullable()
-    .transform((value) => (!!value ? value : null)).when('password', {
-      is: (password: any) => !!password, 
-      then: yup.string().required('A confirmação de senha é obrigatória'), // Torna o campo obrigatório
-      otherwise: yup.string(), 
-    })
-    .oneOf([yup.ref("password"), null], "A confirmação de senha não confere")
+    .transform((value) => (!!value ? value : null))
+    .oneOf([yup.ref("password"), null], "A confirmação de senha não confere"),
 });
 
 type FormDataProps = yup.InferType<typeof profileSchema>;
 
 export function Profile() {
-  const [userPhoto, setUserPhotoSet] = useState<string | null>(null);
-  const { user } = useAuth();
+  const [isUpdate, setIsUpdate] = useState<boolean>(false);
+  const { user, updateUserProfile } = useAuth();
   const toast = useToast();
 
   const {
@@ -86,7 +85,39 @@ export function Profile() {
           });
         }
 
-        setUserPhotoSet(photoUri);
+        const fileExtension = photoUri.split(".").pop();
+        console.log(fileExtension);
+
+        const photoFile = {
+          name: `${user.name}.${fileExtension}`.toLowerCase(),
+          uri: photoUri,
+          type: `${photoSelected.assets[0].type}/${fileExtension}`,
+        } as any;
+
+        const userPhotoUploadForm = new FormData();
+        userPhotoUploadForm.append("avatar", photoFile);
+
+        const avatarUpdatedResponse = await api.patch("/users/avatar", userPhotoUploadForm, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        const userUpdated = user;
+        userUpdated.avatar = avatarUpdatedResponse.data.avatar;
+        updateUserProfile(userUpdated);
+
+        toast.show({
+          placement: "top",
+          render: ({ id }) => (
+            <ToastMessage
+              id={id}
+              onClose={() => toast.close(id)}
+              title="Foto atualizada!"
+              action="success"
+            />
+          ),
+        });
       }
     } catch (error) {
       console.error(error);
@@ -95,7 +126,46 @@ export function Profile() {
   };
 
   const handleProfileUpdate = async (data: FormDataProps) => {
-    console.log(data);
+    setIsUpdate(true);
+    try {
+      const userUpdated = user;
+      userUpdated.name = data.name;
+
+      await api.put(`/users`, data);
+
+      await updateUserProfile(userUpdated);
+
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <ToastMessage
+            id={id}
+            onClose={() => toast.close(id)}
+            title="Perfil alterado com sucesso"
+            action="success"
+          />
+        ),
+      });
+    } catch (error) {
+      const isAppError = error instanceof AppError;
+      const title = isAppError
+        ? error.message
+        : "Não foi possível atualizar os dados. Tente novamente mais tarde";
+
+      toast.show({
+        placement: "top",
+        render: ({ id }) => (
+          <ToastMessage
+            id={id}
+            onClose={() => toast.close(id)}
+            title={title}
+            action="error"
+          />
+        ),
+      });
+    } finally {
+      setIsUpdate(false);
+    }
   };
 
   return (
@@ -107,9 +177,7 @@ export function Profile() {
       >
         <Center mt="$6" px="$10">
           <UserPhoto
-            source={{
-              uri: userPhoto || "https://github.com/DanielVieiraFernandes.png",
-            }}
+           source={user.avatar ? { uri: `${api.defaults.baseURL}/avatar/${user.avatar}`} : DefaultImg}
             alt="Foto do usuário"
             size="xl"
           />
@@ -185,7 +253,7 @@ export function Profile() {
                   secureTextEntry
                   bg="$gray600"
                   onChangeText={onChange}
-                  value={value}
+                  value={value as string}
                   errorMessage={errors.password?.message}
                 />
               )}
@@ -200,13 +268,14 @@ export function Profile() {
                   bg="$gray600"
                   onChangeText={onChange}
                   errorMessage={errors.confirm_password?.message}
-                  value={value}
+                  value={value as string}
                 />
               )}
             />
 
             <Button
               title="Atualizar"
+              isLoading={isUpdate}
               onPress={handleSubmit(handleProfileUpdate)}
             />
           </Center>

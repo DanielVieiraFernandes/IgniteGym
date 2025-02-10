@@ -49,14 +49,10 @@ export function History() {
     fetchHistory();
   }, []))
 
-  if(isLoading){
-    return <Loading />
-  }
-
   return (
     <VStack flex={1}>
       <ScreenHeader title="Histórico" />
-      <SectionList
+    { isLoading ? <Loading /> :   <SectionList
         sections={exercises}
         keyExtractor={(item) => item.id}
         renderItem={({item}) => <HistoryCard data={item} />}
@@ -88,7 +84,7 @@ export function History() {
           </Text>
         )}
         showsVerticalScrollIndicator={false}
-      />
+      />}
     </VStack>
   );
 }
